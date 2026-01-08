@@ -6,47 +6,29 @@ import { Badge } from "@/components/ui/badge"
 import { Ticket, CheckCircle2, Clock } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-
-// Datos mock de proyectos del usuario (en producción vendría de una API)
-const mockUserProjects = [
-  {
-    id: "1",
-    name: "Edificio Reforma 123",
-    validatedDate: "2025-01-12",
-    status: "validated",
-  },
-  {
-    id: "2",
-    name: "Casa Residencial Polanco",
-    status: "reviewing",
-  },
-  {
-    id: "3",
-    name: "Oficinas Corporativas Santa Fe",
-    status: "reviewing",
-  },
-]
+import { useContractorProjects } from "@/hooks/use-projects"
+import { getRaffleTranslation, type Language } from "@/lib/translations"
 
 export function RaffleParticipations() {
-  const [userProjects, setUserProjects] = useState(mockUserProjects)
+  // Usar el idioma seleccionado (no el país)
+  const language: Language = typeof window !== 'undefined' 
+    ? (localStorage.getItem("selectedLanguage") as Language) || 'es'
+    : 'es'
+  const t = getRaffleTranslation(language)
+  const locale = language === 'en' ? 'en-US' : 'es-MX'
+  
+  const [contractorId, setContractorId] = useState<string | null>(null)
+  const { projects, loading } = useContractorProjects(contractorId)
 
   useEffect(() => {
-    // Intentar cargar proyectos desde localStorage (si existen)
-    const savedProjects = localStorage.getItem("contractorProjects")
-    if (savedProjects) {
-      try {
-        const projects = JSON.parse(savedProjects)
-        setUserProjects(projects)
-      } catch (e) {
-        console.error("Error al cargar proyectos:", e)
-      }
-    }
+    const storedId = localStorage.getItem("contractorId")
+    setContractorId(storedId)
   }, [])
 
   // Filtrar solo proyectos validados
-  const userValidatedProjects = userProjects.filter((p) => p.status === "validated")
+  const userValidatedProjects = projects.filter((p) => p.status === "validated")
   const totalParticipations = userValidatedProjects.length
-  const pendingProjects = userProjects.filter((p) => p.status === "reviewing" || p.status === "pending")
+  const pendingProjects = projects.filter((p) => p.status === "reviewing" || p.status === "pending")
 
   return (
     <div className="space-y-6">
@@ -55,17 +37,19 @@ export function RaffleParticipations() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Ticket className="h-5 w-5 text-blue-600" />
-            Tus Participaciones
+            {t.yourParticipations}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-4">
             <p className="text-5xl font-bold text-blue-600 mb-2">{totalParticipations}</p>
             <p className="text-slate-600 mb-4">
-              {totalParticipations === 1 ? "Boleto activo" : "Boletos activos"}
+              {totalParticipations === 1 ? t.activeTicket : t.activeTickets}
             </p>
             <Badge variant="default" className="bg-blue-600 text-white">
-              {totalParticipations === 1 ? "1 participación" : `${totalParticipations} participaciones`}
+              {totalParticipations === 1 
+                ? `1 ${t.participation}` 
+                : `${totalParticipations} ${t.participations}`}
             </Badge>
           </div>
         </CardContent>
@@ -74,16 +58,20 @@ export function RaffleParticipations() {
       {/* Proyectos que dan Participaciones */}
       <Card>
         <CardHeader>
-          <CardTitle>Proyectos Validados</CardTitle>
-          <CardDescription>Estos proyectos te dan participaciones en la rifa</CardDescription>
+          <CardTitle>{t.validatedProjects}</CardTitle>
+          <CardDescription>{t.validatedProjectsDesc}</CardDescription>
         </CardHeader>
         <CardContent>
-          {userValidatedProjects.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8">
+              <p className="text-slate-600">{t.loadingProjects}</p>
+            </div>
+          ) : userValidatedProjects.length === 0 ? (
             <div className="text-center py-8">
               <Clock className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-600 mb-4">Aún no tienes proyectos validados</p>
+              <p className="text-slate-600 mb-4">{t.noValidatedProjects}</p>
               <Link href="/contractor/projects/nuevo">
-                <Button>Registrar Proyecto</Button>
+                <Button>{t.registerProject}</Button>
               </Link>
             </div>
           ) : (
@@ -99,10 +87,12 @@ export function RaffleParticipations() {
                       <p className="font-medium text-sm">{project.name}</p>
                     </div>
                     <p className="text-xs text-slate-600">
-                      Validado el {new Date(project.validatedDate).toLocaleDateString("es-MX")}
+                      {project.validation_date 
+                        ? t.validatedOn(new Date(project.validation_date).toLocaleDateString(locale))
+                        : t.validated}
                     </p>
                   </div>
-                  <Badge className="bg-green-600 text-white">1 boleto</Badge>
+                  <Badge className="bg-green-600 text-white">{t.ticket}</Badge>
                 </div>
               ))}
             </div>
@@ -113,11 +103,11 @@ export function RaffleParticipations() {
       {/* Proyectos Pendientes */}
       <Card>
         <CardHeader>
-          <CardTitle>Proyectos Pendientes</CardTitle>
+          <CardTitle>{t.pendingProjects}</CardTitle>
           <CardDescription>
             {pendingProjects.length > 0
-              ? `${pendingProjects.length} proyecto${pendingProjects.length > 1 ? "s" : ""} en revisión`
-              : "Registra más proyectos para aumentar tus participaciones"}
+              ? t.projectsInReview(pendingProjects.length)
+              : t.registerMoreProjects}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -131,19 +121,18 @@ export function RaffleParticipations() {
                   <Clock className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="font-medium text-sm">{project.name}</p>
-                    <p className="text-xs text-slate-600">En revisión - Próximamente 1 boleto</p>
+                    <p className="text-xs text-slate-600">{t.inReview} - {t.comingSoonTicket}</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-sm text-slate-600 mb-4">
-              Los proyectos en revisión aún no generan participaciones. Una vez validados, automáticamente recibirás un
-              boleto para la rifa.
+              {t.reviewInfo}
             </p>
           )}
           <Link href="/contractor/projects/nuevo">
-            <Button className="w-full">Registrar Nuevo Proyecto</Button>
+            <Button className="w-full">{t.registerNewProject}</Button>
           </Link>
         </CardContent>
       </Card>
@@ -152,11 +141,11 @@ export function RaffleParticipations() {
       <Card className="bg-slate-50">
         <CardContent className="pt-6">
           <div className="space-y-2 text-sm text-slate-600">
-            <p className="font-semibold text-slate-900 mb-2">💡 Consejos para ganar:</p>
+            <p className="font-semibold text-slate-900 mb-2">{t.tipsTitle}</p>
             <ul className="space-y-1 list-disc list-inside">
-              <li>Registra todos tus proyectos completados</li>
-              <li>Asegúrate de subir fotos claras del proceso</li>
-              <li>Más proyectos = más oportunidades</li>
+              <li>{t.tip1}</li>
+              <li>{t.tip2}</li>
+              <li>{t.tip3}</li>
             </ul>
           </div>
         </CardContent>

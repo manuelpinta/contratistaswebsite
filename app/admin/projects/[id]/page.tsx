@@ -6,55 +6,18 @@ import { AdminHeader } from "@/components/admin/admin-header"
 import { ProjectReviewForm } from "@/components/admin/project-review-form"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
-
-// Mock data (en producción vendría de una API)
-const mockProjects = {
-  "1": {
-    id: "1",
-    name: "Pintura Residencial Centro",
-    contractor: { name: "Juan Pérez", phone: "555-0101", email: "juan@example.com" },
-    location: "Monterrey, NL",
-    registeredDate: "2024-01-15",
-    status: "pending",
-    area: 120,
-    liters: 45,
-    paintType: "Vinílica Premium",
-    photos: ["/house-before-painting.jpg", "/house-during-painting.jpg", "/house-after-painting.jpg"],
-    notes: "Proyecto residencial de alta calidad con acabados premium",
-  },
-  "2": {
-    id: "2",
-    name: "Fachada Comercial",
-    contractor: { name: "María García", phone: "555-0102", email: "maria@example.com" },
-    location: "Guadalajara, JAL",
-    registeredDate: "2024-01-14",
-    status: "pending",
-    area: 250,
-    liters: 90,
-    paintType: "Acrílica Exterior",
-    photos: ["/commercial-facade-before.jpg", "/commercial-facade-during.jpg", "/commercial-facade-after.jpg"],
-    notes: "Requiere pintura especial para exteriores, clima húmedo",
-  },
-  "5": {
-    id: "5",
-    name: "Casa Habitación",
-    contractor: { name: "Roberto López", phone: "555-0105", email: "roberto@example.com" },
-    location: "Querétaro, QRO",
-    registeredDate: "2024-01-16",
-    status: "pending",
-    area: 95,
-    liters: 35,
-    paintType: "Esmalte Interior",
-    photos: ["/home-interior-before.jpg", "/home-interior-after.jpg"],
-    notes: "Primera participación en el concurso. Trabajo interior completo.",
-  },
-}
+import { getProjectById } from "@/lib/supabase/projects"
+import { getProjectImages, getSignedUrl } from "@/lib/supabase/project-images"
+import { useTranslation } from "@/hooks/use-translation"
 
 export default function ProjectReviewPage() {
+  const t = useTranslation()
   const router = useRouter()
   const params = useParams()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [project, setProject] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [images, setImages] = useState<string[]>([])
 
   useEffect(() => {
     // Verificar autenticación
@@ -65,37 +28,126 @@ export default function ProjectReviewPage() {
     }
 
     setIsAuthenticated(true)
+  }, [router])
 
-    // Cargar proyecto desde localStorage o mock data
-    const projectId = params.id as string
-    const savedProjects = localStorage.getItem("adminProjects")
-    
-    let projectData = null
-    
-    if (savedProjects) {
+  useEffect(() => {
+    async function loadProject() {
+      if (!isAuthenticated || !params.id) return
+
       try {
-        const projects = JSON.parse(savedProjects)
-        projectData = projects.find((p: any) => p.id === projectId)
-      } catch (e) {
-        console.error("Error al cargar proyectos:", e)
+        setLoading(true)
+        const projectId = params.id as string
+        const projectData = await getProjectById(projectId)
+        
+        // Cargar imágenes del proyecto con URLs firmadas (necesario para buckets privados)
+        let imageUrls: string[] = []
+        try {
+          const projectImages = await getProjectImages(projectId)
+          
+          if (projectImages && projectImages.length > 0) {
+            // Generar URLs firmadas para asegurar acceso (funciona con buckets públicos y privados)
+            imageUrls = await Promise.all(
+              projectImages.map(async (img) => {
+                const publicUrl = img.image_url
+                const urlMatch = publicUrl.match(/\/storage\/v1\/object\/public\/([^\/]+)\/(.+)$/)
+                
+                if (urlMatch) {
+                  const [, bucket, encodedPath] = urlMatch
+                  // Decodificar el path (maneja %20, %2F, etc.)
+                  let decodedPath: string
+                  try {
+                    // Decodificar múltiples veces si es necesario
+                    decodedPath = decodeURIComponent(encodedPath)
+                    // Intentar una segunda vez por si hay doble codificación
+                    if (decodedPath.includes('%')) {
+                      decodedPath = decodeURIComponent(decodedPath)
+                    }
+                  } catch (e) {
+                    decodedPath = encodedPath
+                  }
+                  
+                  try {
+                    const signedUrl = await getSignedUrl(bucket, decodedPath, 3600)
+                    return signedUrl
+                  } catch (signedError) {
+                    // Si falla con path decodificado, intentar con el original
+                    try {
+                      const signedUrl = await getSignedUrl(bucket, encodedPath, 3600)
+                      return signedUrl
+                    } catch (e2) {
+                      // Si todo falla, usar URL pública como fallback
+                      return publicUrl
+                    }
+                  }
+                }
+                return publicUrl
+              })
+            )
+          }
+          setImages(imageUrls)
+        } catch (imgError) {
+          console.error("Error loading images:", imgError)
+        }
+
+        // Transformar datos de Supabase al formato esperado
+        const contractor = (projectData as any).contractor || (projectData as any).contractors || null
+        const transformedProject = {
+          id: projectData.id,
+          name: projectData.name,
+          contractor: contractor ? {
+            name: contractor.name || "N/A",
+            phone: contractor.phone || "",
+            email: contractor.email || "",
+          } : { name: "N/A", phone: "", email: "" },
+          location: projectData.location,
+          registeredDate: projectData.created_at,
+          status: projectData.status,
+          area: projectData.square_meters,
+          liters: projectData.liters,
+          paintType: projectData.paint_type || "",
+          photos: imageUrls, // Usar las URLs firmadas
+          notes: projectData.description || "",
+          validatorComments: projectData.validation_notes || "",
+        }
+
+        setProject(transformedProject)
+      } catch (error: any) {
+        console.error("Error loading project:", error)
+        router.push("/admin/dashboard")
+      } finally {
+        setLoading(false)
       }
     }
-    
-    // Si no se encuentra en localStorage, buscar en mock data
-    if (!projectData) {
-      projectData = mockProjects[projectId as keyof typeof mockProjects]
-    }
 
-    if (projectData) {
-      setProject(projectData)
-    } else {
-      // Si no existe el proyecto, redirigir
-      router.push("/admin/dashboard")
+    if (isAuthenticated) {
+      loadProject()
     }
-  }, [params.id, router])
+  }, [isAuthenticated, params.id, router])
 
-  if (!isAuthenticated || !project) {
+  if (!isAuthenticated) {
     return null
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <AdminHeader />
+        <main className="container mx-auto px-4 py-8 max-w-6xl">
+          <p className="text-slate-600">{t.admin.review.loadingProject}</p>
+        </main>
+      </div>
+    )
+  }
+
+  if (!project) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <AdminHeader />
+        <main className="container mx-auto px-4 py-8 max-w-6xl">
+          <p className="text-red-600">{t.admin.review.projectNotFound}</p>
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -104,12 +156,12 @@ export default function ProjectReviewPage() {
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         <Button variant="ghost" onClick={() => router.push("/admin/dashboard")} className="mb-6">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Volver a Bandeja
+          {t.admin.dashboard.backToTray}
         </Button>
 
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">{project.name}</h1>
-          <p className="text-slate-600">Revisión y validación del proyecto</p>
+          <p className="text-slate-600">{t.admin.dashboard.reviewAndValidation}</p>
         </div>
 
         <ProjectReviewForm project={project} />

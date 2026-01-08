@@ -7,8 +7,10 @@ import { ProjectDetail } from "@/components/contractor/project-detail"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { useTranslation } from "@/hooks/use-translation"
 
 export default function ProjectDetailPage() {
+  const t = useTranslation()
   const params = useParams()
   const router = useRouter()
   const projectId = params?.id as string
@@ -32,7 +34,7 @@ export default function ProjectDetailPage() {
           <Link href="/contractor/projects">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver a Mis Proyectos
+              {t.projects.backToProjects}
             </Button>
           </Link>
         </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner"
 import { User, Mail, Phone, MapPin, Building } from "lucide-react"
 import { Textarea } from "@/components/ui/textarea"
+import { getContractorById, updateContractor } from "@/lib/supabase/contractors"
+import { useContractorProjects } from "@/hooks/use-projects"
 
 const profileSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -26,32 +28,62 @@ type ProfileFormValues = z.infer<typeof profileSchema>
 export function ProfileForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [contractorId, setContractorId] = useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    reset,
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      name: "Juan Pérez",
-      email: "juan.perez@email.com",
-      phone: "5512345678",
-      company: "Pinturas JP",
-      address: "Av. Principal 123, CDMX",
-      bio: "Contratista con 10 años de experiencia en pintura residencial y comercial",
-    },
   })
 
+  useEffect(() => {
+    async function loadContractor() {
+      const id = localStorage.getItem("contractorId")
+      if (id) {
+        setContractorId(id)
+        try {
+          const contractor = await getContractorById(id)
+          reset({
+            name: contractor.name,
+            email: contractor.email,
+            phone: contractor.phone,
+            company: "",
+            address: "",
+            bio: "",
+          })
+        } catch (error) {
+          console.error("Error loading contractor:", error)
+        }
+      }
+    }
+    loadContractor()
+  }, [reset])
+
   const onSubmit = async (data: ProfileFormValues) => {
+    if (!contractorId) {
+      toast.error("No se pudo identificar tu cuenta")
+      return
+    }
+
     setIsLoading(true)
 
-    setTimeout(() => {
-      console.log("[v0] Profile updated:", data)
+    try {
+      await updateContractor(contractorId, {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+      })
       toast.success("Perfil actualizado exitosamente")
       setIsEditing(false)
+    } catch (error: any) {
+      console.error("Error updating profile:", error)
+      toast.error(error.message || "Error al actualizar el perfil")
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   return (
@@ -191,22 +223,41 @@ export function ProfileForm() {
           <CardDescription>Resumen de tu actividad</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">12</div>
-              <div className="text-sm text-slate-600">Proyectos Registrados</div>
-            </div>
-            <div className="p-4 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">8</div>
-              <div className="text-sm text-slate-600">Proyectos Validados</div>
-            </div>
-            <div className="p-4 bg-red-50 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">450</div>
-              <div className="text-sm text-slate-600">Puntos Acumulados</div>
-            </div>
-          </div>
+          <ProfileStats contractorId={contractorId} />
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+// Componente separado para las estadísticas
+function ProfileStats({ contractorId }: { contractorId: string | null }) {
+  const { projects, loading } = useContractorProjects(contractorId)
+  
+  const totalProjects = projects.length
+  const validatedProjects = projects.filter((p) => p.status === "validated").length
+  const totalTickets = validatedProjects // Cada proyecto validado = 1 boleto
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="p-4 bg-blue-50 rounded-lg">
+        <div className="text-2xl font-bold text-blue-600">
+          {loading ? "..." : totalProjects}
+        </div>
+        <div className="text-sm text-slate-600">Proyectos Registrados</div>
+      </div>
+      <div className="p-4 bg-green-50 rounded-lg">
+        <div className="text-2xl font-bold text-green-600">
+          {loading ? "..." : validatedProjects}
+        </div>
+        <div className="text-sm text-slate-600">Proyectos Validados</div>
+      </div>
+      <div className="p-4 bg-red-50 rounded-lg">
+        <div className="text-2xl font-bold text-red-600">
+          {loading ? "..." : totalTickets}
+        </div>
+        <div className="text-sm text-slate-600">Boletos de Rifa</div>
+      </div>
     </div>
   )
 }

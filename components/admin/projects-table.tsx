@@ -8,6 +8,9 @@ import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Eye, Calendar, MapPin, User } from "lucide-react"
+import { useTranslation } from "@/hooks/use-translation"
+import { getLanguageByCountry } from "@/lib/translations"
+import { useSelectedCountry } from "@/components/country-selector"
 
 type Project = {
   id: string
@@ -15,9 +18,13 @@ type Project = {
   contractor: { name: string; phone: string; email: string }
   location: string
   registeredDate: string
-  status: "pending" | "validated" | "rejected"
+  status: "pending" | "reviewing" | "validated" | "rejected"
   area: number
   liters: number
+  paintType?: string
+  photos?: string[]
+  notes?: string
+  validatorComments?: string
 }
 
 interface ProjectsTableProps {
@@ -26,6 +33,10 @@ interface ProjectsTableProps {
 }
 
 export function ProjectsTable({ projects, setProjects }: ProjectsTableProps) {
+  const t = useTranslation()
+  const selectedCountry = useSelectedCountry()
+  const language = getLanguageByCountry(selectedCountry)
+  const locale = language === 'en' ? 'en-US' : 'es-MX'
   const router = useRouter()
   const [statusFilter, setStatusFilter] = useState("all")
   const [dateFilter, setDateFilter] = useState("all")
@@ -48,13 +59,29 @@ export function ProjectsTable({ projects, setProjects }: ProjectsTableProps) {
   })
 
   const getStatusBadge = (status: string) => {
+    const statusLabels = language === 'en'
+      ? {
+          pending: "Pending",
+          reviewing: "Under Review",
+          validated: "Validated",
+          rejected: "Rejected",
+        }
+      : {
+          pending: "Pendiente",
+          reviewing: "En Revisión",
+          validated: "Validado",
+          rejected: "Rechazado",
+        }
+    
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pendiente</Badge>
+        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">{statusLabels.pending}</Badge>
+      case "reviewing":
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">{statusLabels.reviewing}</Badge>
       case "validated":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Validado</Badge>
+        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">{statusLabels.validated}</Badge>
       case "rejected":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Rechazado</Badge>
+        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">{statusLabels.rejected}</Badge>
       default:
         return <Badge variant="default">{status}</Badge>
     }
@@ -66,30 +93,31 @@ export function ProjectsTable({ projects, setProjects }: ProjectsTableProps) {
       <Card className="p-4">
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
-            <label className="text-sm font-medium text-slate-700 mb-2 block">Estatus</label>
+            <label className="text-sm font-medium text-slate-700 mb-2 block">{t.admin.projects.status}</label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="pending">Pendientes</SelectItem>
-                <SelectItem value="validated">Validados</SelectItem>
-                <SelectItem value="rejected">Rechazados</SelectItem>
+                <SelectItem value="all">{t.admin.projects.all}</SelectItem>
+                <SelectItem value="pending">{t.admin.projects.pending}</SelectItem>
+                <SelectItem value="reviewing">{t.admin.projects.reviewing}</SelectItem>
+                <SelectItem value="validated">{t.admin.projects.validated}</SelectItem>
+                <SelectItem value="rejected">{t.admin.projects.rejected}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="flex-1 min-w-[200px]">
-            <label className="text-sm font-medium text-slate-700 mb-2 block">Fecha</label>
+            <label className="text-sm font-medium text-slate-700 mb-2 block">{t.admin.projects.date}</label>
             <Select value={dateFilter} onValueChange={setDateFilter}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="today">Hoy</SelectItem>
-                <SelectItem value="week">Últimos 7 días</SelectItem>
+                <SelectItem value="all">{t.admin.projects.allDates}</SelectItem>
+                <SelectItem value="today">{t.admin.projects.today}</SelectItem>
+                <SelectItem value="week">{t.admin.projects.last7Days}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -101,20 +129,20 @@ export function ProjectsTable({ projects, setProjects }: ProjectsTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Proyecto</TableHead>
-              <TableHead>Contratista</TableHead>
-              <TableHead>Ubicación</TableHead>
-              <TableHead>Fecha</TableHead>
-              <TableHead>Estatus</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              <TableHead>{t.admin.projects.id}</TableHead>
+              <TableHead>{t.admin.projects.project}</TableHead>
+              <TableHead>{t.admin.projects.contractor}</TableHead>
+              <TableHead>{t.admin.projects.location}</TableHead>
+              <TableHead>{t.admin.projects.dateCol}</TableHead>
+              <TableHead>{t.admin.projects.statusCol}</TableHead>
+              <TableHead className="text-right">{t.admin.projects.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedProjects.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-slate-500">
-                  No hay proyectos para mostrar
+                  {t.admin.projects.noProjects}
                 </TableCell>
               </TableRow>
             ) : (
@@ -145,14 +173,14 @@ export function ProjectsTable({ projects, setProjects }: ProjectsTableProps) {
                   <TableCell>
                     <div className="flex items-center gap-2 text-slate-600">
                       <Calendar className="h-4 w-4" />
-                      {new Date(project.registeredDate).toLocaleDateString("es-MX")}
+                      {new Date(project.registeredDate).toLocaleDateString(locale)}
                     </div>
                   </TableCell>
                   <TableCell>{getStatusBadge(project.status)}</TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="outline" onClick={() => router.push(`/admin/projects/${project.id}`)}>
                       <Eye className="h-4 w-4 mr-2" />
-                      Revisar
+                      {t.admin.projects.review}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -165,18 +193,18 @@ export function ProjectsTable({ projects, setProjects }: ProjectsTableProps) {
       {/* Resumen */}
       <div className="flex gap-4 text-sm text-slate-600">
         <div>
-          Total: <strong>{sortedProjects.length}</strong>
+          {t.admin.projects.total}: <strong>{sortedProjects.length}</strong>
         </div>
         <div>
-          Pendientes:{" "}
+          {t.admin.projects.pendingCount}:{" "}
           <strong className="text-yellow-600">{sortedProjects.filter((p) => p.status === "pending").length}</strong>
         </div>
         <div>
-          Validados:{" "}
+          {t.admin.projects.validatedCount}:{" "}
           <strong className="text-green-600">{sortedProjects.filter((p) => p.status === "validated").length}</strong>
         </div>
         <div>
-          Rechazados:{" "}
+          {t.admin.projects.rejectedCount}:{" "}
           <strong className="text-red-600">{sortedProjects.filter((p) => p.status === "rejected").length}</strong>
         </div>
       </div>

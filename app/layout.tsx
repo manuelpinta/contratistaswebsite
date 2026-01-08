@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
+import "../lib/country-debug" // Cargar utilidades de debug para países
+import { CountrySelectorWrapper } from "@/components/country-selector-wrapper"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -38,7 +40,9 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`${inter.className} font-sans antialiased`}>
+        <CountrySelectorWrapper>
         {children}
+        </CountrySelectorWrapper>
         <Analytics />
       </body>
     </html>

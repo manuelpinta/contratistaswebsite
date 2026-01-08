@@ -30,15 +30,31 @@ O usando otros métodos según tu sistema operativo:
 pnpm install
 ```
 
-4. Configura las variables de entorno (opcional):
+4. Configura las variables de entorno:
 
 Crea un archivo `.env.local` en la raíz del proyecto:
 
 ```env
+# Supabase (requerido)
+NEXT_PUBLIC_SUPABASE_URL=tu_url_de_supabase
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=tu_publishable_key_de_supabase
+
+# Google Maps (opcional)
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=tu_api_key_aqui
 ```
 
-**Nota:** La API key de Google Maps es opcional. Si no se configura, el campo de ubicación funcionará como un campo de texto normal. Para obtener una API key:
+**Configuración de Supabase:**
+1. Crea un proyecto en [Supabase](https://supabase.com/)
+2. Ve a Settings > API
+3. Copia la **URL** y la **Publishable Key** (no uses la Secret Key en el cliente)
+4. Crea las tablas según el esquema en `SUPABASE_SCHEMA.md`
+
+**Nota sobre las claves de Supabase:**
+- **Publishable Key**: Se usa en el cliente (frontend) y es segura para exponer públicamente
+- **Secret Key**: Solo debe usarse en el servidor (backend) y nunca debe exponerse en el cliente
+
+**Google Maps (opcional):**
+Si no se configura, el campo de ubicación funcionará como un campo de texto normal. Para obtener una API key:
 1. Ve a [Google Cloud Console](https://console.cloud.google.com/)
 2. Crea un nuevo proyecto o selecciona uno existente
 3. Habilita la API de "Places API" y "Maps JavaScript API"
@@ -77,9 +93,11 @@ Abre tu navegador y visita esa URL para ver la aplicación.
 - **Next.js 16** - Framework de React
 - **TypeScript** - Tipado estático
 - **Tailwind CSS** - Framework de CSS
+- **Supabase** - Base de datos y autenticación
 - **Radix UI** - Componentes de UI accesibles
 - **React Hook Form** - Manejo de formularios
 - **Zod** - Validación de esquemas
+- **Google Maps API** - Autocompletado de direcciones
 
 ## Notas
 

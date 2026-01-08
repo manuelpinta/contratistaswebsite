@@ -8,24 +8,21 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel"
 import Link from "next/link"
+import { usePromotions } from "@/hooks/use-promotions"
 
 export function PromotionsBanner() {
-  // Banners de promociones de tienda - solo imágenes
-  const promotionBanners = [
-    {
-      image: "/paint-products-store.jpg",
-      link: "#", // Opcional: link a la promoción
-    },
-    {
-      image: "/delivery-truck.jpg",
-      link: "#",
-    },
-    {
-      image: "/professional-painting-tools.jpg",
-      link: "#",
-    },
-    // Agregar más banners según necesites
+  const { promotions, loading } = usePromotions()
+
+  // Fallback a imágenes por defecto si no hay promociones o está cargando
+  const defaultBanners = [
+    { banner_image_url: "/paint-products-store.jpg", link_url: "#" },
+    { banner_image_url: "/delivery-truck.jpg", link_url: "#" },
+    { banner_image_url: "/professional-painting-tools.jpg", link_url: "#" },
   ]
+
+  const promotionBanners = promotions.length > 0 
+    ? promotions.map(p => ({ image: p.banner_image_url, link: p.link_url || "#" }))
+    : defaultBanners.map(b => ({ image: b.banner_image_url, link: b.link_url }))
 
   return (
     <div className="mb-8">

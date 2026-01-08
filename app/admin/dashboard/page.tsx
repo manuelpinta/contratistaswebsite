@@ -4,84 +4,14 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AdminHeader } from "@/components/admin/admin-header"
 import { ProjectsTable } from "@/components/admin/projects-table"
-
-// Datos de ejemplo
-const mockProjects = [
-  {
-    id: "1",
-    name: "Pintura Residencial Centro",
-    contractor: { name: "Juan Pérez", phone: "555-0101", email: "juan@example.com" },
-    location: "Monterrey, NL",
-    registeredDate: "2024-01-15",
-    status: "pending",
-    area: 120,
-    liters: 45,
-    paintType: "Vinílica Premium",
-    photos: ["/house-before-painting.jpg", "/house-during-painting.jpg", "/house-after-painting.jpg"],
-    notes: "Proyecto residencial de alta calidad",
-  },
-  {
-    id: "2",
-    name: "Fachada Comercial",
-    contractor: { name: "María García", phone: "555-0102", email: "maria@example.com" },
-    location: "Guadalajara, JAL",
-    registeredDate: "2024-01-14",
-    status: "pending",
-    area: 250,
-    liters: 90,
-    paintType: "Acrílica Exterior",
-    photos: [
-      "/commercial-facade-before.jpg",
-      "/commercial-facade-during.jpg",
-      "/commercial-facade-after.jpg",
-    ],
-    notes: "Requiere pintura especial para exteriores",
-  },
-  {
-    id: "3",
-    name: "Restaurante La Plaza",
-    contractor: { name: "Carlos Ruiz", phone: "555-0103", email: "carlos@example.com" },
-    location: "Ciudad de México, CDMX",
-    registeredDate: "2024-01-13",
-    status: "validated",
-    area: 180,
-    liters: 65,
-    paintType: "Esmalte Interior",
-    photos: ["/placeholder.svg?height=300&width=400"],
-    validatorComments: "Trabajo excelente, bien documentado",
-  },
-  {
-    id: "4",
-    name: "Oficinas Corporativas",
-    contractor: { name: "Ana Martínez", phone: "555-0104", email: "ana@example.com" },
-    location: "Puebla, PUE",
-    registeredDate: "2024-01-12",
-    status: "rejected",
-    area: 200,
-    liters: 75,
-    paintType: "Vinílica Premium",
-    photos: ["/placeholder.svg?height=300&width=400"],
-    validatorComments: "Falta evidencia fotográfica del proceso",
-  },
-  {
-    id: "5",
-    name: "Casa Habitación",
-    contractor: { name: "Roberto López", phone: "555-0105", email: "roberto@example.com" },
-    location: "Querétaro, QRO",
-    registeredDate: "2024-01-16",
-    status: "pending",
-    area: 95,
-    liters: 35,
-    paintType: "Esmalte Interior",
-    photos: ["/home-interior-before.jpg", "/home-interior-after.jpg"],
-    notes: "Primera participación en el concurso",
-  },
-]
+import { useAllProjects } from "@/hooks/use-all-projects"
+import { useTranslation } from "@/hooks/use-translation"
 
 export default function AdminDashboard() {
+  const t = useTranslation()
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [projects, setProjects] = useState(mockProjects)
+  const { projects, loading, error, refetch } = useAllProjects()
 
   useEffect(() => {
     // Verificar autenticación
@@ -93,74 +23,80 @@ export default function AdminDashboard() {
     }
   }, [router])
 
-  const loadProjects = () => {
-    // Cargar proyectos desde localStorage o usar los mock iniciales
-    const savedProjects = localStorage.getItem("adminProjects")
-    if (savedProjects) {
-      try {
-        setProjects(JSON.parse(savedProjects))
-      } catch (e) {
-        console.error("Error al cargar proyectos:", e)
-        // Inicializar con datos mock si no hay datos guardados
-        localStorage.setItem("adminProjects", JSON.stringify(mockProjects))
-        setProjects(mockProjects)
-      }
-    } else {
-      // Inicializar con datos mock si no hay datos guardados
-      localStorage.setItem("adminProjects", JSON.stringify(mockProjects))
-      setProjects(mockProjects)
-    }
-  }
-
+  // Recargar proyectos cuando se actualiza uno
   useEffect(() => {
-    if (isAuthenticated) {
-      loadProjects()
-    }
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    // Recargar proyectos cuando se actualiza un proyecto
     const handleProjectsUpdated = () => {
       if (isAuthenticated) {
-        loadProjects()
+        refetch()
       }
     }
 
     window.addEventListener("projectsUpdated", handleProjectsUpdated)
-    // También recargar cuando la ventana recupera el foco
-    const handleFocus = () => {
-      if (isAuthenticated) {
-        loadProjects()
-      }
-    }
-    window.addEventListener("focus", handleFocus)
-    
     return () => {
       window.removeEventListener("projectsUpdated", handleProjectsUpdated)
-      window.removeEventListener("focus", handleFocus)
     }
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    // Guardar proyectos en localStorage cuando cambien
-    if (isAuthenticated && projects.length > 0) {
-      localStorage.setItem("adminProjects", JSON.stringify(projects))
-    }
-  }, [projects, isAuthenticated])
+  }, [isAuthenticated, refetch])
 
   if (!isAuthenticated) {
     return null
   }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <AdminHeader />
+        <main className="container mx-auto px-4 py-8">
+          <p className="text-slate-600">{t.admin.dashboard.loading}</p>
+        </main>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <AdminHeader />
+        <main className="container mx-auto px-4 py-8">
+          <p className="text-red-600">{t.admin.dashboard.errorLoading}: {error.message}</p>
+        </main>
+      </div>
+    )
+  }
+
+  // Transformar proyectos de Supabase al formato esperado por ProjectsTable
+  const transformedProjects = projects.map((project: any) => {
+    // Extraer datos del contratista si viene en el join
+    const contractor = project.contractor || project.contractors || null
+    
+    return {
+      id: project.id,
+      name: project.name,
+      contractor: contractor ? {
+        name: contractor.name || "N/A",
+        phone: contractor.phone || "",
+        email: contractor.email || "",
+      } : { name: "N/A", phone: "", email: "" },
+      location: project.location,
+      registeredDate: project.created_at,
+      status: project.status,
+      area: project.square_meters,
+      liters: project.liters,
+      paintType: project.paint_type || "",
+      photos: [], // Se cargarán en la página de detalle
+      notes: project.description || "",
+      validatorComments: project.validation_notes || "",
+    }
+  })
 
   return (
     <div className="min-h-screen bg-slate-50">
       <AdminHeader />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Bandeja de Proyectos</h1>
-          <p className="text-slate-600">Valida y gestiona los proyectos registrados</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">{t.admin.dashboard.title}</h1>
+          <p className="text-slate-600">{t.admin.dashboard.description}</p>
         </div>
-        <ProjectsTable projects={projects} setProjects={setProjects} />
+        <ProjectsTable projects={transformedProjects} setProjects={() => refetch()} />
       </main>
     </div>
   )

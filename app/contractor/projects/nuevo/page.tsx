@@ -1,13 +1,11 @@
+"use client"
+
 import { ContractorHeader } from "@/components/contractor/contractor-header"
 import { NewProjectForm } from "@/components/contractor/new-project-form"
-
-export const metadata = {
-  title: "Registrar Proyecto | Portal del Contratista",
-  description: "Registra un nuevo proyecto",
-}
+import { useTranslation } from "@/hooks/use-translation"
 
 export default function NewProjectPage() {
-  console.log("[v0] New project form page loaded")
+  const t = useTranslation()
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -15,8 +13,8 @@ export default function NewProjectPage() {
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Registrar Nuevo Proyecto</h1>
-          <p className="text-slate-600">Completa la información del proyecto para enviarlo a revisión</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">{t.projects.registerNewProject}</h1>
+          <p className="text-slate-600">{t.projects.completeInfo}</p>
         </div>
 
         <NewProjectForm />

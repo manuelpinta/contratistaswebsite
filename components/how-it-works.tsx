@@ -1,6 +1,11 @@
+"use client"
+
 import { Card } from "@/components/ui/card"
+import { useTranslation } from "@/hooks/use-translation"
 
 export function HowItWorks() {
+  const t = useTranslation()
+  
   const steps = [
     {
       number: "01",
@@ -14,8 +19,8 @@ export function HowItWorks() {
           />
         </svg>
       ),
-      title: "Regístrate e inicia sesión",
-      description: "Crea tu cuenta de contratista de forma rápida y sencilla",
+      title: t.howItWorks.step1Title,
+      description: t.howItWorks.step1Desc,
     },
     {
       number: "02",
@@ -30,8 +35,8 @@ export function HowItWorks() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
-      title: "Registra tu proyecto y sube evidencia",
-      description: "Ingresa los detalles de tu obra y carga las fotos del proyecto completado",
+      title: t.howItWorks.step2Title,
+      description: t.howItWorks.step2Desc,
     },
     {
       number: "03",
@@ -45,8 +50,8 @@ export function HowItWorks() {
           />
         </svg>
       ),
-      title: "Tu proyecto se valida y participas en beneficios",
-      description: "Una vez validado, accede a promociones exclusivas y participa en premios",
+      title: t.howItWorks.step3Title,
+      description: t.howItWorks.step3Desc,
     },
   ]
 
@@ -59,13 +64,13 @@ export function HowItWorks() {
       <div className="container relative mx-auto px-4 lg:px-8">
         <div className="mx-auto max-w-3xl text-center mb-20">
           <div className="mb-4 inline-block rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary">
-            Proceso Simple
+            {t.howItWorks.badge}
           </div>
           <h2 className="mb-6 text-4xl font-extrabold tracking-tight text-foreground md:text-5xl lg:text-6xl text-balance">
-            ¿Cómo funciona?
+            {t.howItWorks.title}
           </h2>
           <p className="text-xl text-muted-foreground md:text-2xl text-pretty font-medium">
-            Tres pasos simples para participar en el programa
+            {t.howItWorks.subtitle}
           </p>
         </div>
 

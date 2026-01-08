@@ -1,27 +1,57 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Gift, Users, Clock } from "lucide-react"
-
-// Datos de la rifa del mes actual
-const currentRaffle = {
-  month: "Enero 2025",
-  prize: {
-    title: "Kit de Herramientas Profesionales",
-    description: "Incluye pistola de pintura profesional, rodillos premium, brochas de alta calidad y accesorios",
-    value: "$15,000 MXN",
-    image: "/professional-painting-tools.jpg",
-  },
-  drawDate: "2025-01-31",
-  totalParticipants: 127,
-  totalTickets: 342,
-}
+import { getAllProjects } from "@/lib/supabase/projects"
+import { useContractorCountry } from "@/hooks/use-contractor-country"
+import { getRaffleByCountry } from "@/lib/raffles"
+import { getRaffleTranslation, type Language } from "@/lib/translations"
+import { useTranslation } from "@/hooks/use-translation"
 
 export function RaffleInfo() {
+  // Usar el país de la cuenta del contratista, no el selector de idioma
+  const contractorCountry = useContractorCountry()
+  const currentRaffle = getRaffleByCountry(contractorCountry)
+  // Usar el idioma seleccionado para las traducciones
+  const language: Language = typeof window !== 'undefined' 
+    ? (localStorage.getItem("selectedLanguage") as Language) || 'es'
+    : 'es'
+  const raffleT = getRaffleTranslation(language)
+  
+  const [totalParticipants, setTotalParticipants] = useState(0)
+  const [totalTickets, setTotalTickets] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadRaffleStats() {
+      try {
+        // Obtener proyectos filtrados por país del usuario (de su cuenta)
+        const allProjects = await getAllProjects(contractorCountry || null, null)
+        // Contar contratistas únicos con proyectos validados del mismo país
+        const validatedProjects = allProjects.filter((p: any) => 
+          p.status === "validated" && 
+          (!contractorCountry || p.contractor?.country_code === contractorCountry)
+        )
+        const uniqueContractors = new Set(validatedProjects.map((p: any) => p.contractor_id))
+        
+        setTotalParticipants(uniqueContractors.size)
+        setTotalTickets(validatedProjects.length)
+      } catch (error) {
+        console.error("Error loading raffle stats:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadRaffleStats()
+  }, [contractorCountry])
+
   const daysUntilDraw = Math.ceil(
     (new Date(currentRaffle.drawDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
   )
+  
+  const locale = language === 'en' ? 'en-US' : 'es-MX'
 
   return (
     <div className="space-y-6">
@@ -34,7 +64,7 @@ export function RaffleInfo() {
             className="h-full w-full object-cover"
           />
           <div className="absolute top-4 right-4">
-            <Badge className="bg-red-600 text-white font-semibold px-3 py-1">Rifa del Mes</Badge>
+            <Badge className="bg-red-600 text-white font-semibold px-3 py-1">{raffleT.raffleBadge}</Badge>
           </div>
         </div>
         <CardHeader>
@@ -44,7 +74,7 @@ export function RaffleInfo() {
               <CardDescription className="text-base">{currentRaffle.prize.description}</CardDescription>
             </div>
             <div className="text-right">
-              <p className="text-sm text-slate-600 mb-1">Valor del premio</p>
+              <p className="text-sm text-slate-600 mb-1">{raffleT.prizeValue}</p>
               <p className="text-2xl font-bold text-green-600">{currentRaffle.prize.value}</p>
             </div>
           </div>
@@ -52,7 +82,7 @@ export function RaffleInfo() {
         <CardContent>
           <div className="flex items-center gap-2 text-slate-600">
             <Gift className="h-5 w-5" />
-            <span className="font-medium">Rifa de {currentRaffle.month}</span>
+            <span className="font-medium">{raffleT.raffleOfMonth} {currentRaffle.month}</span>
           </div>
         </CardContent>
       </Card>
@@ -60,15 +90,15 @@ export function RaffleInfo() {
       {/* Información del Sorteo */}
       <Card>
         <CardHeader>
-          <CardTitle>Información del Sorteo</CardTitle>
+          <CardTitle>{raffleT.drawInfo}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-start gap-3 p-4 bg-slate-50 rounded-lg">
             <Calendar className="h-5 w-5 text-slate-600 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm text-slate-600 mb-1">Fecha del sorteo</p>
+              <p className="text-sm text-slate-600 mb-1">{raffleT.drawDate}</p>
               <p className="font-semibold">
-                {new Date(currentRaffle.drawDate).toLocaleDateString("es-MX", {
+                {new Date(currentRaffle.drawDate).toLocaleDateString(locale, {
                   weekday: "long",
                   year: "numeric",
                   month: "long",
@@ -78,7 +108,7 @@ export function RaffleInfo() {
               {daysUntilDraw > 0 && (
                 <p className="text-sm text-blue-600 mt-1">
                   <Clock className="h-4 w-4 inline mr-1" />
-                  {daysUntilDraw} {daysUntilDraw === 1 ? "día" : "días"} restantes
+                  {raffleT.daysRemaining(daysUntilDraw)}
                 </p>
               )}
             </div>
@@ -88,17 +118,21 @@ export function RaffleInfo() {
             <div className="p-4 bg-blue-50 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Users className="h-5 w-5 text-blue-600" />
-                <p className="text-sm text-slate-600">Participantes</p>
+                <p className="text-sm text-slate-600">{raffleT.participants}</p>
               </div>
-              <p className="text-2xl font-bold text-blue-600">{currentRaffle.totalParticipants}</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {loading ? "..." : totalParticipants}
+              </p>
             </div>
 
             <div className="p-4 bg-green-50 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Gift className="h-5 w-5 text-green-600" />
-                <p className="text-sm text-slate-600">Boletos totales</p>
+                <p className="text-sm text-slate-600">{raffleT.totalTickets}</p>
               </div>
-              <p className="text-2xl font-bold text-green-600">{currentRaffle.totalTickets}</p>
+              <p className="text-2xl font-bold text-green-600">
+                {loading ? "..." : totalTickets}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -107,17 +141,17 @@ export function RaffleInfo() {
       {/* Cómo Participar */}
       <Card>
         <CardHeader>
-          <CardTitle>¿Cómo participar?</CardTitle>
+          <CardTitle>{raffleT.howToParticipate}</CardTitle>
         </CardHeader>
         <CardContent>
           <ol className="space-y-3 list-decimal list-inside text-slate-700">
-            <li>Registra tus proyectos de pintura completados</li>
-            <li>Sube las fotografías del antes, durante y después</li>
-            <li>Espera a que tu proyecto sea validado por nuestro equipo</li>
+            <li>{raffleT.step1}</li>
+            <li>{raffleT.step2}</li>
+            <li>{raffleT.step3}</li>
             <li>
-              <strong>Cada proyecto validado = 1 boleto para la rifa</strong>
+              <strong>{raffleT.step4}</strong>
             </li>
-            <li>Más proyectos validados = más oportunidades de ganar</li>
+            <li>{raffleT.step5}</li>
           </ol>
         </CardContent>
       </Card>

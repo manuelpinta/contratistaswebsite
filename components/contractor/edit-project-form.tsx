@@ -6,65 +6,76 @@ import { toast } from "sonner"
 import { Card, CardContent } from "@/components/ui/card"
 import { Info } from "lucide-react"
 import { NewProjectForm } from "./new-project-form"
-
-// Datos mock del proyecto (en producción vendría de una API)
-const projectData: Record<string, any> = {
-  "1": {
-    id: "1",
-    name: "Edificio Reforma 123",
-    location: "Ciudad de México, Reforma",
-    squareMeters: 500,
-    liters: 150,
-    paintType: "vinimex",
-    description: "Proyecto de pintura exterior e interior",
-    images: ["/paint-products-store.jpg"],
-  },
-  "2": {
-    id: "2",
-    name: "Casa Residencial Polanco",
-    location: "Polanco, CDMX",
-    squareMeters: 200,
-    liters: 80,
-    paintType: "pro-mil",
-    description: "Pintura completa de casa residencial",
-  },
-  "3": {
-    id: "3",
-    name: "Oficinas Corporativas Santa Fe",
-    location: "Santa Fe, CDMX",
-    squareMeters: 800,
-    liters: 250,
-    paintType: "cam-vinimex",
-    description: "Proyecto de pintura para oficinas corporativas",
-  },
-  "4": {
-    id: "4",
-    name: "Departamento Roma Norte",
-    location: "Roma Norte, CDMX",
-    squareMeters: 120,
-    liters: 40,
-    paintType: "prima",
-    description: "Pintura de departamento completo",
-    images: ["/home-interior-before.jpg", "/home-interior-after.jpg"],
-  },
-}
+import { useProject } from "@/hooks/use-projects"
+import { useUpdateProject } from "@/hooks/use-projects"
+import { getProjectImages, deleteProjectImage } from "@/lib/supabase/project-images"
 
 interface EditProjectFormProps {
   projectId: string
 }
 
+interface ExistingImage {
+  id: string
+  url: string
+  order: number
+}
+
 export function EditProjectForm({ projectId }: EditProjectFormProps) {
-  const project = projectData[projectId]
+  const { project, loading, error } = useProject(projectId)
+  const { update } = useUpdateProject()
   const router = useRouter()
+  const [existingImages, setExistingImages] = useState<ExistingImage[]>([])
+  const [loadingImages, setLoadingImages] = useState(true)
 
   useEffect(() => {
-    if (!project) {
+    if (error) {
       toast.error("Proyecto no encontrado")
       router.push("/contractor/projects")
     }
-  }, [project, router])
+  }, [error, router])
 
-  if (!project) {
+  // Cargar imágenes existentes del proyecto
+  useEffect(() => {
+    async function loadImages() {
+      if (!projectId) return
+
+      try {
+        setLoadingImages(true)
+        const images = await getProjectImages(projectId)
+
+        // Usar URLs públicas directamente (más rápido)
+        // El componente ImageWithFallback manejará el fallback a URLs firmadas si es necesario
+        const imagesWithUrls = images.map((img) => ({
+          id: img.id,
+          url: img.image_url,
+          order: img.image_order || 0,
+        }))
+
+        setExistingImages(imagesWithUrls.sort((a, b) => a.order - b.order))
+      } catch (err: any) {
+        console.error("Error loading images:", err)
+        toast.error("Error al cargar las imágenes del proyecto")
+      } finally {
+        setLoadingImages(false)
+      }
+    }
+
+    if (projectId) {
+      loadImages()
+    }
+  }, [projectId])
+
+  const handleDeleteImage = async (imageId: string) => {
+    try {
+      await deleteProjectImage(imageId)
+      // Remover de la lista local
+      setExistingImages((prev) => prev.filter((img) => img.id !== imageId))
+    } catch (error: any) {
+      throw error // Re-lanzar para que NewProjectForm maneje el toast
+    }
+  }
+
+  if (loading || loadingImages) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
@@ -74,13 +85,33 @@ export function EditProjectForm({ projectId }: EditProjectFormProps) {
     )
   }
 
+  if (!project) {
+    return (
+      <Card>
+        <CardContent className="py-12 text-center">
+          <p className="text-slate-600">Proyecto no encontrado</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   const handleSubmit = async (data: any) => {
-    // Simular actualización de proyecto
-    setTimeout(() => {
-      console.log("[v0] Project update:", data)
+    try {
+      await update(projectId, {
+        name: data.name,
+        location: data.location,
+        square_meters: parseInt(data.squareMeters),
+        liters: parseInt(data.liters),
+        paint_type: data.paintType || null,
+        description: data.description || null,
+        status: "pending", // Resetear a pendiente cuando se edita
+      })
       toast.success("Proyecto actualizado exitosamente. Será revisado nuevamente.")
       router.push(`/contractor/projects/${projectId}`)
-    }, 1500)
+    } catch (error: any) {
+      console.error("Error updating project:", error)
+      toast.error(error.message || "Error al actualizar el proyecto")
+    }
   }
 
   return (
@@ -93,6 +124,7 @@ export function EditProjectForm({ projectId }: EditProjectFormProps) {
               <p className="text-sm font-semibold text-foreground mb-1">Editando proyecto rechazado</p>
               <p className="text-sm text-muted-foreground">
                 Corrige la información según las observaciones recibidas y reenvía el proyecto para una nueva revisión.
+                Puedes eliminar imágenes existentes y agregar nuevas.
               </p>
             </div>
           </div>
@@ -104,14 +136,17 @@ export function EditProjectForm({ projectId }: EditProjectFormProps) {
         initialData={{
           name: project.name,
           location: project.location,
-          squareMeters: project.squareMeters.toString(),
+          squareMeters: project.square_meters.toString(),
           liters: project.liters.toString(),
-          paintType: project.paintType || "",
+          paintType: project.paint_type || "",
           description: project.description || "",
         }}
         onSubmit={handleSubmit}
         submitLabel="Actualizar y reenviar proyecto"
         isEditMode={true}
+        projectId={projectId}
+        existingImages={existingImages}
+        onImageDelete={handleDeleteImage}
       />
     </div>
   )

@@ -1,7 +1,11 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useTranslation } from "@/hooks/use-translation"
 
 export function HeroSection() {
+  const t = useTranslation()
   return (
     <section className="relative overflow-hidden border-b border-border py-24 md:py-32 lg:py-40">
       {/* Modern gradient background with subtle pattern */}
@@ -20,16 +24,16 @@ export function HeroSection() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
             </span>
-            Programa Oficial
+            {t.hero.officialProgram || t.header.officialProgram}
           </div>
 
           <h1 className="mb-8 text-5xl font-extrabold tracking-tight text-foreground md:text-6xl lg:text-7xl xl:text-8xl text-balance leading-tight">
-            <span className="block">Registra tus proyectos</span>
-            <span className="block text-gradient-brand mt-2">y gana beneficios</span>
+            <span className="block">{t.hero.registerProjects}</span>
+            <span className="block text-gradient-brand mt-2">{t.hero.andWinBenefits}</span>
           </h1>
 
           <p className="mb-12 text-xl text-muted-foreground md:text-2xl lg:text-3xl text-pretty max-w-3xl mx-auto leading-relaxed font-medium">
-            Participa en el Concurso de Contratistas registrando tus obras y accede a promociones exclusivas y premios increíbles.
+            {t.hero.description}
           </p>
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
@@ -38,17 +42,17 @@ export function HeroSection() {
                 size="lg" 
                 className="w-full text-base font-bold sm:w-auto px-10 py-7 text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 bg-primary hover:bg-primary/90"
               >
-                Registrarme como contratista
-              </Button>
+              {t.hero.getStarted}
+            </Button>
             </Link>
             <Link href="/login">
-              <Button
-                size="lg"
-                variant="outline"
+            <Button
+              size="lg"
+              variant="outline"
                 className="w-full text-base font-semibold sm:w-auto px-10 py-7 text-lg border-2 hover:bg-primary/10 hover:border-primary transition-all duration-300"
-              >
-                Iniciar sesión
-              </Button>
+            >
+              {t.header.login}
+            </Button>
             </Link>
           </div>
 
@@ -58,19 +62,19 @@ export function HeroSection() {
               <svg className="h-5 w-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span className="font-medium">Proyectos validados</span>
+              <span className="font-medium">{t.hero.validatedProjects}</span>
             </div>
             <div className="flex items-center gap-2">
               <svg className="h-5 w-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span className="font-medium">Promociones exclusivas</span>
+              <span className="font-medium">{t.hero.exclusivePromotions}</span>
             </div>
             <div className="flex items-center gap-2">
               <svg className="h-5 w-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span className="font-medium">Sorteos mensuales</span>
+              <span className="font-medium">{t.hero.monthlyRaffles}</span>
             </div>
           </div>
         </div>
